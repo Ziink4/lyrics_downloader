@@ -3,7 +3,7 @@ import asyncio
 import re
 import urllib
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 # Installed
 import aiohttp
@@ -17,6 +17,7 @@ BASE_URL = "https://syair.info"
 MAX_SIMULTANEOUS_REQUESTS = 10
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:48.0) Gecko/20100101 Firefox/48.0",
                 "Accept-encoding": "gzip"}
+
 LIBRARY_PATH = "D:/Music"
 
 
@@ -35,36 +36,40 @@ async def download_all_lyrics():
     return await asyncio.gather(*async_tasks)
 
 
-async def download_lyrics(semaphore: asyncio.Semaphore, file: Path):
-    async with semaphore:
-        logger.info(f"Downloading lyrics for '{file}'")
+async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
+    async with semaphore, aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
+        logger.debug(f"Downloading lyrics for '{file}'")
 
-        tags = await read_tags_from_file(file)
+        lrc_file_path = file.with_suffix('.lrc')
+        logger.debug(f"Destination file '{lrc_file_path}'")
+        if lrc_file_path.exists():
+            logger.debug(f"Skipping existing file '{lrc_file_path}'")
+            return
+
+        tags = read_tags_from_file(file)
         if tags[0] is None or tags[1] is None:
-            logger.error(f"Aborted downloading '{file}'")
+            logger.info(f"Aborted downloading '{file}'")
             return
 
         search_url = make_search_url(tags[0], tags[1])
-        search_soup = await download_url(search_url)
+        search_soup = await download_url(session, search_url)
         lyrics_link = search_soup.find("a", href=True, class_="title")['href']
         logger.debug(f"Found lyrics link '{lyrics_link}'")
 
         lyrics_url = BASE_URL + lyrics_link
         logger.debug(f"Generated link URL '{lyrics_url}'")
-        lyrics_soup = await download_url(lyrics_url)
+        lyrics_soup = await download_url(session, lyrics_url)
         lrc_file_link = lyrics_soup.find("span", text=re.compile(r".*\.lrc")).parent['href']
         logger.debug(f"Found LRC file link '{lrc_file_link}'")
 
         lrc_file_url = BASE_URL + lrc_file_link
         logger.debug(f"Generated LRC link URL '{lrc_file_url}'")
-        lrc_file_path = file.with_suffix('.lrc')
-        logger.debug(f"Destination file '{lrc_file_path}'")
-        await download_file(lrc_file_url, lrc_file_path)
+        await download_file(session, lrc_file_url, lrc_file_path)
 
         logger.info(f"Finished downloading '{lrc_file_path}'")
 
 
-async def read_tags_from_file(file: str) -> Tuple[str, str]:
+def read_tags_from_file(file: Path) -> Tuple[Optional[str], Optional[str]]:
     try:
         tags = mutagen.File(file)
 
@@ -95,31 +100,28 @@ async def read_tags_from_file(file: str) -> Tuple[str, str]:
     return None, None
 
 
-
 def make_search_url(artist: str, title: str) -> str:
     search_url = BASE_URL + "/search?q=" + urllib.parse.quote_plus(artist + " " + title)
     logger.debug(f"Generated search URL '{search_url}'")
     return search_url
 
 
-async def download_url(url: str):
+async def download_url(session: aiohttp.ClientSession, url: str) -> BeautifulSoup:
     logger.debug(f"Downloading HTML at '{url}'")
 
-    async with aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
-        async with session.get(url) as response:
-            html_content = await response.text('latin-1')
-            return BeautifulSoup(html_content, "html.parser")
+    async with session.get(url) as response:
+        html_content = await response.text('latin-1')
+        return BeautifulSoup(html_content, "html.parser")
 
 
-async def download_file(url: str, destination: str):
+async def download_file(session: aiohttp.ClientSession, url: str, destination: Path) -> None:
     logger.debug(f"Downloading file at '{url}' in '{destination}'")
 
-    async with aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
-        async with session.get(url) as response:
-            f = await aiofiles.open(destination, mode='wb')
-            file_content = await response.read()
-            await f.write(file_content)
-            await f.close()
+    async with session.get(url) as response:
+        file_content = await response.read()
+        f = await aiofiles.open(destination, mode='wb')
+        await f.write(file_content)
+        await f.close()
 
 
 if __name__ == "__main__":

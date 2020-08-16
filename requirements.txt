@@ -1,0 +1,5 @@
+aiohttp
+aiofiles
+logzero
+beautifulsoup4
+mutagen

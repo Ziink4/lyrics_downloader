@@ -75,12 +75,13 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
 
         # 2) Read the embedded tags of the music file to extract artist and title information
         tags = read_tags_from_file(file)
-        if tags[0] is None or tags[1] is None:
-            logger.info(f"Aborted downloading '{file}'")
+        if tags is None:
+            logger.error(f"Aborted downloading '{file}' (Unsupported format)")
             return
 
-        search_url = make_search_url(tags[0], tags[1])
         # 3) Generate the URL and download the web page for the search results
+        artist, _, _, title = tags
+        search_url = make_search_url(artist, title)
         search_soup = await download_url(session, search_url)
 
         # 4) Generate the URL and download the web page for the first result of the search
@@ -108,44 +109,94 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
         logger.info(f"Finished downloading '{lrc_file_path}'")
 
 
-def read_tags_from_file(file: Path) -> Tuple[Optional[str], Optional[str]]:
+def read_tags_from_file(file: Path) -> Optional[Tuple[str, str, int, str]]:
     """
     Read the artist and title information from a music file
     Currently supported file formats are .mp3 and .flac
-
     :param file: Input music file
     :return: Artist name and title as strings
     """
     try:
+        logger.debug(f"Trying to load '{file}'")
+
         tags = mutagen.File(file)
 
-        if type(tags) is mutagen.mp3.MP3:
-            try:
-                artist = tags.tags.getall('TPE1')[0].text[0]
+        match type(tags):
+            case mutagen.mp3.MP3:
+                try:
+                    artist = tags.tags.getall('TPE1')[0].text[0]
+                except IndexError as e:
+                    logger.exception(e)
+                    artist = ''
+
+                try:
+                    album = tags.tags.getall('TALB')[0].text[0]
+                except IndexError as e:
+                    logger.exception(e)
+                    album = ''
+
+                try:
+                    track = int(re.match(r"(\d+)(?:/\d+)?", tags.tags.getall('TRCK')[0].text[0])[1])
+                except IndexError as e:
+                    logger.exception(e)
+                    track = 0
+
                 title = tags.tags.getall('TIT2')[0].text[0]
-                logger.debug(f"Loaded MP3 file '{file}': '{artist} - {title}'")
-                return artist, title
-            except IndexError as e:
-                # IndexError may occur if the file has no artist or no title information
-                logger.exception(e)
-                pass
-        elif type(tags) is mutagen.flac.FLAC:
-            try:
-                artist = tags['artist'][0]
+                logger.debug(f"Loaded MP3 file: '{artist} / {album} / {track} - {title}'")
+                return artist, album, track, title
+
+            case mutagen.flac.FLAC | mutagen.oggopus.OggOpus:
+                try:
+                    artist = tags['artist'][0]
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    artist = ''
+
+                try:
+                    album = tags['album'][0]
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    album = ''
+
+                try:
+                    track = int(re.match(r"(\d+)(?:/\d+)?", tags['tracknumber'][0])[1])
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    track = 0
+
                 title = tags['title'][0]
-                logger.debug(f"Loaded FLAC file '{file}': '{artist} - {title}'")
-                return artist, title
-            except IndexError as e:
-                # IndexError may occur if the file has no artist or no title information
-                logger.exception(e)
-                pass
-        else:
-            logger.debug(f"Loaded unsupported file '{file}': '{tags}'")
+                logger.debug(f"Loaded FLAC/Opus file: '{artist} / {album} / {track} - {title}'")
+                return artist, album, track, title
+
+            case mutagen.mp4.MP4:
+                try:
+                    artist = tags['\xa9ART'][0]
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    artist = ''
+
+                try:
+                    album = tags['\xa9alb'][0]
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    album = ''
+
+                try:
+                    track = int(tags['trkn'][0][0])
+                except (KeyError, IndexError) as e:
+                    logger.exception(e)
+                    track = ''
+
+                title = tags['\xa9nam'][0]
+                logger.debug(f"Loaded MP4/M4A file: '{artist} / {album} / {track} - {title}'")
+                return artist, album, track, title
+            case _:
+                logger.info(f"Found unsupported file: '{tags}'")
 
     except mutagen.MutagenError as e:
         logger.exception(e)
 
-    return None, None
+    return None
 
 
 def make_search_url(artist: str, title: str) -> str:

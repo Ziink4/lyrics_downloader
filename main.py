@@ -138,19 +138,19 @@ def read_tags_from_file(file: Path) -> Optional[Tuple[str, str, int, str]]:
                 try:
                     artist = tags.tags.getall('TPE1')[0].text[0]
                 except IndexError as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     artist = ''
 
                 try:
                     album = tags.tags.getall('TALB')[0].text[0]
                 except IndexError as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     album = ''
 
                 try:
                     track = int(re.match(r"(\d+)(?:/\d+)?", tags.tags.getall('TRCK')[0].text[0])[1])
                 except IndexError as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     track = 0
 
                 title = tags.tags.getall('TIT2')[0].text[0]
@@ -161,19 +161,19 @@ def read_tags_from_file(file: Path) -> Optional[Tuple[str, str, int, str]]:
                 try:
                     artist = tags['artist'][0]
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     artist = ''
 
                 try:
                     album = tags['album'][0]
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     album = ''
 
                 try:
                     track = int(re.match(r"(\d+)(?:/\d+)?", tags['tracknumber'][0])[1])
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     track = 0
 
                 title = tags['title'][0]
@@ -184,29 +184,29 @@ def read_tags_from_file(file: Path) -> Optional[Tuple[str, str, int, str]]:
                 try:
                     artist = tags['\xa9ART'][0]
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     artist = ''
 
                 try:
                     album = tags['\xa9alb'][0]
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     album = ''
 
                 try:
                     track = int(tags['trkn'][0][0])
                 except (KeyError, IndexError) as e:
-                    logger.exception(e)
+                    logger.debug(e)
                     track = ''
 
                 title = tags['\xa9nam'][0]
                 logger.debug(f"Loaded MP4/M4A file: '{artist} / {album} / {track} - {title}'")
                 return artist, album, track, title
             case _:
-                logger.info(f"Found unsupported file: '{tags}'")
+                logger.debug(f"Found unsupported file: '{tags}'")
 
     except mutagen.MutagenError as e:
-        logger.exception(e)
+        logger.debug(e)
 
     return None
 

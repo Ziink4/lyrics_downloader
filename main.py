@@ -34,18 +34,17 @@ async def download_all_lyrics():
     Lyrics files will be downloaded in the same location as the music files
     and will have the same file name but with the ".lrc" extension
 
-    Currently supported file formats are .mp3 and .flac
+    Currently, supported file formats are MP3, FLAC, Ogg (Opus) and MP4/M4A
     """
     root_path = Path(LIBRARY_PATH)
 
     async_tasks = []
     semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
 
-    for supported_type in ("*.mp3", "*.flac"):
-        for path in root_path.rglob(supported_type):
-            logger.debug(f"Found '{path}'")
-            task = asyncio.create_task(download_lyrics(semaphore, path))
-            async_tasks.append(task)
+    for path in root_path.rglob("*.*"):
+        logger.debug(f"Found '{path}'")
+        task = asyncio.create_task(download_lyrics(semaphore, path))
+        async_tasks.append(task)
 
     return await asyncio.gather(*async_tasks)
 

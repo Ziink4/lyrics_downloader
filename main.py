@@ -77,7 +77,7 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
         async with aiofiles.open(lrc_file_path, mode='rb') as f:
             start_line = await f.readline()
 
-        if start_line[0] != ord('['):
+        if b'[' not in start_line or b']' not in start_line:
             logger.error(f"Corrupted LRC file '{lrc_file_path}', cleaning it up")
             lrc_file_path.unlink()
         else:

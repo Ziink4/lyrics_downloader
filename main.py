@@ -66,6 +66,11 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
     async with semaphore, aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
         logger.debug(f"Downloading lyrics for '{file}'")
 
+        # 0) Skip everything if we are parsing a lyrics file
+        if file.suffix == '.lrc':
+            logger.debug(f"Skipping lyrics file '{file}'")
+            return
+
         # 1) Skip the current file if the lyrics are already present
         lrc_file_path = file.with_suffix('.lrc')
         logger.debug(f"Destination file '{lrc_file_path}'")

@@ -98,7 +98,10 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
         # 5) Generate the URL and download the final.lrc file
         lrc_file_link = lyrics_soup.find("span", text=re.compile(r".*\.lrc")).parent['href']
         logger.debug(f"Found LRC file link '{lrc_file_link}'")
-        lrc_file_url = BASE_URL + lrc_file_link
+        if lrc_file_link.startswith("http"):
+            lrc_file_url = lrc_file_link
+        else:
+            lrc_file_url = BASE_URL + lrc_file_link
         logger.debug(f"Generated LRC link URL '{lrc_file_url}'")
         await download_file(session, lrc_file_url, lrc_file_path)
 

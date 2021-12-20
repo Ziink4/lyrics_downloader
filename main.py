@@ -257,23 +257,27 @@ async def download_file(session: aiohttp.ClientSession, url: str, destination: P
 
 
 if __name__ == "__main__":
+    DO_PROFILING = False
+
     import asyncio
-    import cProfile
-    import pstats
 
     # Setup Logging
     # logzero.logfile("logs/logfile.log", maxBytes=1e9, backupCount=1)
     logzero.loglevel(level=20)  # logging.INFO
     # logzero.loglevel(level=10)  # logging.DEBUG
 
-    # Start Profiler
-    pr = cProfile.Profile()
-    pr.enable()
+    if DO_PROFILING:
+        import cProfile
+        import pstats
+        # Start Profiler
+        pr = cProfile.Profile()
+        pr.enable()
 
     # Download all lyrics
     asyncio.run(download_all_lyrics())
 
-    # Stop profiler and print stats
-    pr.disable()
-    ps = pstats.Stats(pr)
-    ps.sort_stats('cumulative').print_stats()
+    if DO_PROFILING:
+        # Stop profiler and print stats
+        pr.disable()
+        ps = pstats.Stats(pr)
+        ps.sort_stats('cumulative').print_stats()

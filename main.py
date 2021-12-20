@@ -16,10 +16,12 @@ import mutagen
 from bs4 import BeautifulSoup
 from logzero import logger
 
-MAX_SIMULTANEOUS_REQUESTS = 10
-HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:48.0) Gecko/20100101 Firefox/48.0",
-                "Accept-encoding": "gzip"}
 BASE_URL = "https://www.lyricsify.com"
+MAX_SIMULTANEOUS_REQUESTS = 10
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/96.0.4664.110 Safari/537.36",
+                "Upgrade-Insecure-Requests": "1",
+                "Accept-encoding": "gzip, deflate"}
 
 # Specify your music library location here :
 LIBRARY_PATH = "D:/Music"

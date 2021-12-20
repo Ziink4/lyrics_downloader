@@ -244,9 +244,9 @@ async def download_file(session: aiohttp.ClientSession, url: str, destination: P
 
     async with session.get(url) as response:
         file_content = await response.read()
-        f = await aiofiles.open(destination, mode='wb')
+
+    async with aiofiles.open(destination, mode='wb') as f:
         await f.write(file_content)
-        await f.close()
 
 
 if __name__ == "__main__":

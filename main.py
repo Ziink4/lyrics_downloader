@@ -252,6 +252,10 @@ async def download_file(session: aiohttp.ClientSession, url: str, destination: P
     async with session.get(url) as response:
         file_content = await response.read()
 
+    if b'[' not in file_content or b']' not in file_content:
+        logger.error(f"Corrupted LRC file '{destination}', not writing it")
+        return
+
     async with aiofiles.open(destination, mode='wb') as f:
         await f.write(file_content)
 

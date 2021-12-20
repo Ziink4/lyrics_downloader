@@ -84,7 +84,12 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
         search_soup = await download_url(session, search_url)
 
         # 4) Generate the URL and download the web page for the first result of the search
-        lyrics_link = search_soup.find("a", href=True, class_="title")['href']
+        lyrics_tag = search_soup.find("a", href=True, class_="title")
+        if lyrics_tag is None:
+            logger.error(f"Aborted downloading '{file}' (Could not find lyrics file)")
+            return
+
+        lyrics_link = lyrics_tag['href']
         logger.debug(f"Found lyrics link '{lyrics_link}'")
         lyrics_url = BASE_URL + lyrics_link
         logger.debug(f"Generated link URL '{lyrics_url}'")

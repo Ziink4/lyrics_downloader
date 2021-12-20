@@ -261,6 +261,9 @@ if __name__ == "__main__":
 
     import asyncio
 
+    # Workaround buggy event loop on Windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     # Setup Logging
     # logzero.logfile("logs/logfile.log", maxBytes=1e9, backupCount=1)
     logzero.loglevel(level=20)  # logging.INFO

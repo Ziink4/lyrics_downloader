@@ -200,8 +200,7 @@ if __name__ == "__main__":
     pr.enable()
 
     # Download all lyrics
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(download_all_lyrics())
+    asyncio.run(download_all_lyrics())
 
     # Stop profiler and print stats
     pr.disable()

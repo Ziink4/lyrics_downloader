@@ -1,5 +1,5 @@
 """
-reads your music library and download synchronized lyrics (as .lrc files) from https://syair.info
+reads your music library and download synchronized lyrics (as .lrc files)
 """
 # Base
 import asyncio
@@ -16,10 +16,10 @@ import mutagen
 from bs4 import BeautifulSoup
 from logzero import logger
 
-BASE_URL = "https://syair.info"
 MAX_SIMULTANEOUS_REQUESTS = 10
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:48.0) Gecko/20100101 Firefox/48.0",
                 "Accept-encoding": "gzip"}
+BASE_URL = "https://www.lyricsify.com"
 
 # Specify your music library location here :
 LIBRARY_PATH = "D:/Music"
@@ -78,8 +78,8 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
             logger.info(f"Aborted downloading '{file}'")
             return
 
-        # 3) Generate the URL and download the web page for the search results on https://syair.info
         search_url = make_search_url(tags[0], tags[1])
+        # 3) Generate the URL and download the web page for the search results
         search_soup = await download_url(session, search_url)
 
         # 4) Generate the URL and download the web page for the first result of the search

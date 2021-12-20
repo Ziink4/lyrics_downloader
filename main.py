@@ -63,33 +63,40 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
     :param semaphore: A semaphore object to limit the number of concurrent downloads
     :param file: The input music file
     """
-    async with semaphore, aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
-        logger.debug(f"Downloading lyrics for '{file}'")
+    logger.debug(f"Downloading lyrics for '{file}'")
 
-        # 0) Skip everything if we are parsing a lyrics file
-        if file.suffix == '.lrc':
-            logger.debug(f"Skipping lyrics file '{file}'")
-            return
+    # 1) Skip everything if we are parsing a lyrics file
+    if file.suffix == '.lrc':
+        logger.debug(f"Skipping lyrics file '{file}'")
+        return
 
-        # 1) Skip the current file if the lyrics are already present
-        lrc_file_path = file.with_suffix('.lrc')
-        logger.debug(f"Destination file '{lrc_file_path}'")
-        if lrc_file_path.exists():
+    # 2) Skip the current file if the lyrics are already present
+    lrc_file_path = file.with_suffix('.lrc')
+    logger.debug(f"Destination file '{lrc_file_path}'")
+    if lrc_file_path.exists():
+        async with aiofiles.open(lrc_file_path, mode='rb') as f:
+            start_token = await f.read(1)
+
+        if not start_token == b'[':
+            logger.error(f"Corrupted LRC file '{lrc_file_path}', cleaning it up")
+            lrc_file_path.unlink()
+        else:
             logger.debug(f"Skipping existing file '{lrc_file_path}'")
             return
 
-        # 2) Read the embedded tags of the music file to extract artist and title information
-        tags = read_tags_from_file(file)
-        if tags is None:
-            logger.error(f"Aborted downloading '{file}' (Unsupported format)")
-            return
+    # 3) Read the embedded tags of the music file to extract artist and title information
+    tags = read_tags_from_file(file)
+    if tags is None:
+        logger.error(f"Aborted downloading '{file}' (Unsupported format)")
+        return
 
-        # 3) Generate the URL and download the web page for the search results
+    async with semaphore, aiohttp.ClientSession(headers=HTTP_HEADERS) as session:
+        # 4) Generate the URL and download the web page for the search results
         artist, _, _, title = tags
         search_url = make_search_url(artist, title)
         search_soup = await download_url(session, search_url)
 
-        # 4) Generate the URL and download the web page for the first result of the search
+        # 5) Generate the URL and download the web page for the first result of the search
         lyrics_tag = search_soup.find("a", href=True, class_="title")
         if lyrics_tag is None:
             logger.error(f"Aborted downloading '{file}' (Could not find lyrics file)")
@@ -101,17 +108,21 @@ async def download_lyrics(semaphore: asyncio.Semaphore, file: Path) -> None:
         logger.debug(f"Generated link URL '{lyrics_url}'")
         lyrics_soup = await download_url(session, lyrics_url)
 
-        # 5) Generate the URL and download the final.lrc file
-        lrc_file_link = lyrics_soup.find("span", text=re.compile(r".*\.lrc")).parent['href']
-        logger.debug(f"Found LRC file link '{lrc_file_link}'")
-        if lrc_file_link.startswith("http"):
-            lrc_file_url = lrc_file_link
+        # 6) Generate the URL for the download page
+        lrc_download_link = lyrics_soup.find("span", text=re.compile(r".*\.lrc")).parent['href']
+        logger.debug(f"Found LRC file link '{lrc_download_link}'")
+        if lrc_download_link.startswith("http"):
+            lrc_file_url = lrc_download_link
         else:
-            lrc_file_url = BASE_URL + lrc_file_link
+            lrc_file_url = BASE_URL + lrc_download_link
         logger.debug(f"Generated LRC link URL '{lrc_file_url}'")
-        await download_file(session, lrc_file_url, lrc_file_path)
+        lyrics_file_soup = await download_url(session, lrc_file_url)
 
-        logger.info(f"Finished downloading '{lrc_file_path}'")
+        # 7) Generate the final URL
+        lrc_file_link = lyrics_file_soup.find("a", text="click here")['href']
+        await download_file(session, lrc_file_link, lrc_file_path)
+
+    logger.info(f"Finished downloading '{lrc_file_path}'")
 
 
 def read_tags_from_file(file: Path) -> Optional[Tuple[str, str, int, str]]:
